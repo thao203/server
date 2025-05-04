@@ -41,7 +41,31 @@ app.use((req, res) => {
 });
 
 // Connect to MongoDB
-connectDB();
+connectDB().then(() => {
+    console.log('MongoDB connected, starting email notifications...');
+
+    // Import ControllerEmail sau khi kết nối DB thành công
+    const ControllerEmail = require('./Controller/ControllerEmail');
+
+    // Gọi các hàm notifyOverdue và notifyDueSoon
+    (async () => {
+        try {
+            await ControllerEmail.notifyOverdue(null, null); // Gọi mà không cần req, res
+            console.log('notifyOverdue executed successfully.');
+        } catch (error) {
+            console.error('Error in notifyOverdue:', error);
+        }
+
+        try {
+            await ControllerEmail.notifyDueSoon(null, null); // Gọi mà không cần req, res
+            console.log('notifyDueSoon executed successfully.');
+        } catch (error) {
+            console.error('Error in notifyDueSoon:', error);
+        }
+    })();
+}).catch((error) => {
+    console.error('Failed to connect to MongoDB', error);
+});
 
 // Google OAuth2 for email
 const CLIENT_ID = process.env.CLIENT_ID;
