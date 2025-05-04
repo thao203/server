@@ -26,8 +26,19 @@ app.use(cors({
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// Routes
+// Route mặc định cho root (/)
+app.get('/', (req, res) => {
+    res.status(200).json({ message: 'Welcome to the API' });
+    // Hoặc trả về HTML nếu cần: res.send('<h1>Welcome to the API</h1>');
+});
+
+// Áp dụng các route từ index.js
 route(app);
+
+// Xử lý các route không tồn tại (404)
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+});
 
 // Connect to MongoDB
 connectDB();
