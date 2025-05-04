@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const route = require('./route/index');
-const connectDB = require('./config/connect');
+const connectDB = require('./config/Connect');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
