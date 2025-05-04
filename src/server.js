@@ -11,7 +11,9 @@ app.use(cookieParser());
 const allowedOrigins = [
     'http://localhost:3000',
     'http://192.168.1.15:3000',
+'https://latn.vercel.app'
 ];
+
 
 app.use(cors({
     origin: function (origin, callback) {
