@@ -45,8 +45,8 @@ const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_U
 oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 
-//app.listen(port, () => {
-//    console.log(`Server running on port ${port}`);
-//});
+app.listen(port, () => {
+   console.log(`Server running on port ${port}`);
+});
 // Xuất ứng dụng Express
 module.exports = app;
