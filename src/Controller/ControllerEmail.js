@@ -78,168 +78,194 @@ class ControllerEmail {
         }
     }
 
-    async notifyDueSoon(req, res) {
-        try {
-            const today = moment().startOf('day');
-            const startThreshold = moment().add(1, 'days').startOf('day'); // Ngày mai
-            const endThreshold = moment().add(3, 'days').endOf('day'); // 3 ngày tới
+   async notifyDueSoon(req, res) {
+       try {
+           const today = moment().startOf('day');
+           const startThreshold = moment().add(1, 'days').startOf('day'); // Ngày mai
+           const endThreshold = moment().add(3, 'days').endOf('day'); // 3 ngày tới
 
-            // Tìm tất cả các phiếu mượn chưa trả ít nhất một quyển và sắp đến hạn
-            const borrowRecords = await ModelHandleBook.find({
-                ngayhentra: {
-                    $gte: startThreshold.toDate(),
-                    $lte: endThreshold.toDate(),
-                },
-                'books.tinhtrang': false, // Có ít nhất một quyển chưa trả
-            });
+           // Tìm tất cả các phiếu mượn chưa trả ít nhất một quyển và sắp đến hạn
+           const borrowRecords = await ModelHandleBook.find({
+               ngayhentra: {
+                   $gte: startThreshold.toDate(),
+                   $lte: endThreshold.toDate(),
+               },
+               'books.tinhtrang': false, // Có ít nhất một quyển chưa trả
+           });
 
-            if (!borrowRecords.length) {
-                return res.status(200).json({ message: 'Không có phiếu mượn nào sắp đến hạn trả trong 1-3 ngày!' });
-            }
+           if (!borrowRecords.length) {
+               if (res) {
+                   return res.status(200).json({ message: 'Không có phiếu mượn nào sắp đến hạn trả trong 1-3 ngày!' });
+               }
+               console.log('Không có phiếu mượn nào sắp đến hạn trả trong 1-3 ngày!');
+               return;
+           }
 
-            const accessToken = await oAuth2Client.getAccessToken();
-            if (!accessToken.token) {
-                return res.status(500).json({ message: 'Không thể lấy accessToken để gửi email!' });
-            }
+           const accessToken = await oAuth2Client.getAccessToken();
+           if (!accessToken.token) {
+               if (res) {
+                   return res.status(500).json({ message: 'Không thể lấy accessToken để gửi email!' });
+               }
+               throw new Error('Không thể lấy accessToken để gửi email!');
+           }
 
-            const transporter = nodemailer.createTransport({
-                service: 'gmail',
-                auth: {
-                    type: 'OAuth2',
-                    user: EMAIL_USER,
-                    clientId: CLIENT_ID,
-                    clientSecret: CLIENT_SECRET,
-                    refreshToken: REFRESH_TOKEN,
-                    accessToken: accessToken.token,
-                },
-            });
+           const transporter = nodemailer.createTransport({
+               service: 'gmail',
+               auth: {
+                   type: 'OAuth2',
+                   user: EMAIL_USER,
+                   clientId: CLIENT_ID,
+                   clientSecret: CLIENT_SECRET,
+                   refreshToken: REFRESH_TOKEN,
+                   accessToken: accessToken.token,
+               },
+           });
 
-            const emailPromises = [];
+           const emailPromises = [];
 
-            for (const record of borrowRecords) {
-                const reader = await ModelReader.findOne({ masinhvien: record.masinhvien });
-                if (!reader || !reader.email) {
-                    console.warn(`Không tìm thấy email cho sinh viên ${record.masinhvien}`);
-                    continue;
-                }
+           for (const record of borrowRecords) {
+               const reader = await ModelReader.findOne({ masinhvien: record.masinhvien });
+               if (!reader || !reader.email) {
+                   console.warn(`Không tìm thấy email cho sinh viên ${record.masinhvien}`);
+                   continue;
+               }
 
-                // Lọc các quyển sách chưa trả trong mảng books
-                const dueBooks = record.books.filter(book => !book.tinhtrang);
+               // Lọc các quyển sách chưa trả trong mảng books
+               const dueBooks = record.books.filter(book => !book.tinhtrang);
 
-                if (!dueBooks.length) continue;
+               if (!dueBooks.length) continue;
 
-                // Lấy thông tin tên sách từ ModelBook
-                const bookDetails = await Promise.all(dueBooks.map(async (book) => {
-                    const bookInfo = await ModelBook.findOne({ masach: book.masach });
-                    return {
-                        masach: book.masach,
-                        tensach: bookInfo ? bookInfo.tensach : 'Không tìm thấy tên sách',
-                    };
-                }));
+               // Lấy thông tin tên sách từ ModelBook
+               const bookDetails = await Promise.all(dueBooks.map(async (book) => {
+                   const bookInfo = await ModelBook.findOne({ masach: book.masach });
+                   return {
+                       masach: book.masach,
+                       tensach: bookInfo ? bookInfo.tensach : 'Không tìm thấy tên sách',
+                   };
+               }));
 
-                const dueDate = moment(record.ngayhentra);
-                const daysLeft = dueDate.diff(today, 'days');
+               const dueDate = moment(record.ngayhentra);
+               const daysLeft = dueDate.diff(today, 'days');
 
-                // Tạo danh sách chi tiết các quyển sách sắp đến hạn
-                const bookList = bookDetails.map(book => `- Mã sách: ${book.masach}, Tên sách: ${book.tensach}`).join('\n');
+               // Tạo danh sách chi tiết các quyển sách sắp đến hạn
+               const bookList = bookDetails.map(book => `- Mã sách: ${book.masach}, Tên sách: ${book.tensach}`).join('\n');
 
-                const mailOptions = {
-                    from: `"Hệ Thống Thư Viện" <${EMAIL_USER}>`,
-                    to: reader.email,
-                    subject: 'Thông Báo: Sách Sắp Đến Hạn Trả',
-                    text: `Chào bạn,\n\nPhiếu mượn của bạn (Mã phiếu: ${record.maphieumuon}) chứa các sách sau sẽ đến hạn trả vào ngày ${dueDate.format('DD/MM/YYYY')}. Còn ${daysLeft} ngày nữa là đến hạn:\n${bookList}\n\nVui lòng trả sách đúng hạn để tránh bị phạt.\n\nTrân trọng,\nHệ Thống Thư Viện`,
-                };
+               const mailOptions = {
+                   from: `"Hệ Thống Thư Viện" <${EMAIL_USER}>`,
+                   to: reader.email,
+                   subject: 'Thông Báo: Sách Sắp Đến Hạn Trả',
+                   text: `Chào bạn,\n\nPhiếu mượn của bạn (Mã phiếu: ${record.maphieumuon}) chứa các sách sau sẽ đến hạn trả vào ngày ${dueDate.format('DD/MM/YYYY')}. Còn ${daysLeft} ngày nữa là đến hạn:\n${bookList}\n\nVui lòng trả sách đúng hạn để tránh bị phạt.\n\nTrân trọng,\nHệ Thống Thư Viện`,
+               };
 
-                emailPromises.push(transporter.sendMail(mailOptions));
-            }
+               emailPromises.push(transporter.sendMail(mailOptions));
+           }
 
-            await Promise.all(emailPromises);
+           await Promise.all(emailPromises);
 
-            return res.status(200).json({ message: 'Đã gửi email thông báo đến các sinh viên có sách sắp đến hạn!' });
-        } catch (error) {
-            console.error('Lỗi khi gửi email thông báo:', error);
-            return res.status(500).json({ message: 'Lỗi server khi gửi email thông báo!' });
-        }
-    }
+           if (res) {
+               return res.status(200).json({ message: 'Đã gửi email thông báo đến các sinh viên có sách sắp đến hạn!' });
+           }
+           console.log('Đã gửi email thông báo đến các sinh viên có sách sắp đến hạn!');
+       } catch (error) {
+           console.error('Lỗi khi gửi email thông báo:', error);
+           if (res) {
+               return res.status(500).json({ message: 'Lỗi server khi gửi email thông báo!' });
+           }
+           throw error;
+       }
+   }
 
-    async notifyOverdue(req, res) {
-        try {
-            const today = moment().startOf('day');
+   async notifyOverdue(req, res) {
+       try {
+           const today = moment().startOf('day');
 
-            // Tìm tất cả các phiếu mượn quá hạn và chưa trả ít nhất một quyển
-            const overdueRecords = await ModelHandleBook.find({
-                ngayhentra: { $lt: today.toDate() },
-                'books.tinhtrang': false, // Có ít nhất một quyển chưa trả
-            });
+           // Tìm tất cả các phiếu mượn quá hạn và chưa trả ít nhất một quyển
+           const overdueRecords = await ModelHandleBook.find({
+               ngayhentra: { $lt: today.toDate() },
+               'books.tinhtrang': false, // Có ít nhất một quyển chưa trả
+           });
 
-            if (!overdueRecords.length) {
-                return res.status(200).json({ message: 'Không có phiếu mượn nào quá hạn trả!' });
-            }
+           if (!overdueRecords.length) {
+               if (res) {
+                   return res.status(200).json({ message: 'Không có phiếu mượn nào quá hạn trả!' });
+               }
+               console.log('Không có phiếu mượn nào quá hạn trả!');
+               return;
+           }
 
-            const accessToken = await oAuth2Client.getAccessToken();
-            if (!accessToken.token) {
-                return res.status(500).json({ message: 'Không thể lấy accessToken để gửi email!' });
-            }
+           const accessToken = await oAuth2Client.getAccessToken();
+           if (!accessToken.token) {
+               if (res) {
+                   return res.status(500).json({ message: 'Không thể lấy accessToken để gửi email!' });
+               }
+               throw new Error('Không thể lấy accessToken để gửi email!');
+           }
 
-            const transporter = nodemailer.createTransport({
-                service: 'gmail',
-                auth: {
-                    type: 'OAuth2',
-                    user: EMAIL_USER,
-                    clientId: CLIENT_ID,
-                    clientSecret: CLIENT_SECRET,
-                    refreshToken: REFRESH_TOKEN,
-                    accessToken: accessToken.token,
-                },
-            });
+           const transporter = nodemailer.createTransport({
+               service: 'gmail',
+               auth: {
+                   type: 'OAuth2',
+                   user: EMAIL_USER,
+                   clientId: CLIENT_ID,
+                   clientSecret: CLIENT_SECRET,
+                   refreshToken: REFRESH_TOKEN,
+                   accessToken: accessToken.token,
+               },
+           });
 
-            const emailPromises = [];
+           const emailPromises = [];
 
-            for (const record of overdueRecords) {
-                const reader = await ModelReader.findOne({ masinhvien: record.masinhvien });
-                if (!reader || !reader.email) {
-                    console.warn(`Không tìm thấy email cho sinh viên ${record.masinhvien}`);
-                    continue;
-                }
+           for (const record of overdueRecords) {
+               const reader = await ModelReader.findOne({ masinhvien: record.masinhvien });
+               if (!reader || !reader.email) {
+                   console.warn(`Không tìm thấy email cho sinh viên ${record.masinhvien}`);
+                   continue;
+               }
 
-                // Lọc các quyển sách chưa trả trong mảng books
-                const overdueBooks = record.books.filter(book => !book.tinhtrang);
+               // Lọc các quyển sách chưa trả trong mảng books
+               const overdueBooks = record.books.filter(book => !book.tinhtrang);
 
-                if (!overdueBooks.length) continue;
+               if (!overdueBooks.length) continue;
 
-                // Lấy thông tin tên sách từ ModelBook
-                const bookDetails = await Promise.all(overdueBooks.map(async (book) => {
-                    const bookInfo = await ModelBook.findOne({ masach: book.masach });
-                    return {
-                        masach: book.masach,
-                        tensach: bookInfo ? bookInfo.tensach : 'Không tìm thấy tên sách',
-                    };
-                }));
+               // Lấy thông tin tên sách từ ModelBook
+               const bookDetails = await Promise.all(overdueBooks.map(async (book) => {
+                   const bookInfo = await ModelBook.findOne({ masach: book.masach });
+                   return {
+                       masach: book.masach,
+                       tensach: bookInfo ? bookInfo.tensach : 'Không tìm thấy tên sách',
+                   };
+               }));
 
-                const dueDate = moment(record.ngayhentra);
-                const daysOverdue = today.diff(dueDate, 'days');
+               const dueDate = moment(record.ngayhentra);
+               const daysOverdue = today.diff(dueDate, 'days');
 
-                // Tạo danh sách chi tiết các quyển sách quá hạn
-                const bookList = bookDetails.map(book => `- Mã sách: ${book.masach}, Tên sách: ${book.tensach}`).join('\n');
+               // Tạo danh sách chi tiết các quyển sách quá hạn
+               const bookList = bookDetails.map(book => `- Mã sách: ${book.masach}, Tên sách: ${book.tensach}`).join('\n');
 
-                const mailOptions = {
-                    from: `"Hệ Thống Thư Viện" <${EMAIL_USER}>`,
-                    to: reader.email,
-                    subject: 'Cảnh Báo: Sách Quá Hạn Trả',
-                    text: `Chào bạn,\n\nPhiếu mượn của bạn (Mã phiếu: ${record.maphieumuon}) chứa các sách sau đã quá hạn trả từ ngày ${dueDate.format('DD/MM/YYYY')} (${daysOverdue} ngày quá hạn):\n${bookList}\n\nVui lòng trả sách ngay lập tức để tránh bị phạt thêm. Liên hệ thư viện để biết thêm chi tiết.\n\nTrân trọng,\nHệ Thống Thư Viện`,
-                };
+               const mailOptions = {
+                   from: `"Hệ Thống Thư Viện" <${EMAIL_USER}>`,
+                   to: reader.email,
+                   subject: 'Cảnh Báo: Sách Quá Hạn Trả',
+                   text: `Chào bạn,\n\nPhiếu mượn của bạn (Mã phiếu: ${record.maphieumuon}) chứa các sách sau đã quá hạn trả từ ngày ${dueDate.format('DD/MM/YYYY')} (${daysOverdue} ngày quá hạn):\n${bookList}\n\nVui lòng trả sách ngay lập tức để tránh bị phạt thêm. Liên hệ thư viện để biết thêm chi tiết.\n\nTrân trọng,\nHệ Thống Thư Viện`,
+               };
 
-                emailPromises.push(transporter.sendMail(mailOptions));
-            }
+               emailPromises.push(transporter.sendMail(mailOptions));
+           }
 
-            await Promise.all(emailPromises);
+           await Promise.all(emailPromises);
 
-            return res.status(200).json({ message: 'Đã gửi email cảnh báo đến các sinh viên có sách quá hạn!' });
-        } catch (error) {
-            console.error('Lỗi khi gửi email cảnh báo quá hạn:', error);
-            return res.status(500).json({ message: 'Lỗi server khi gửi email cảnh báo quá hạn!' });
-        }
-    }
+           if (res) {
+               return res.status(200).json({ message: 'Đã gửi email cảnh báo đến các sinh viên có sách quá hạn!' });
+           }
+           console.log('Đã gửi email cảnh báo đến các sinh viên có sách quá hạn!');
+       } catch (error) {
+           console.error('Lỗi khi gửi email cảnh báo quá hạn:', error);
+           if (res) {
+               return res.status(500).json({ message: 'Lỗi server khi gửi email cảnh báo quá hạn!' });
+           }
+           throw error;
+       }
+   }
 }
 
 module.exports = new ControllerEmail();
