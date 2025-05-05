@@ -1,4 +1,4 @@
-﻿const BookRouter = require('./BookRouter');
+const BookRouter = require('./BookRouter');
 const UserRouter = require('./UserRouter');
 const ReaderRouter = require('./ReaderRouter');
 const EmailRouter = require('./EmailRouter');
@@ -13,6 +13,7 @@ function route(app) {
     //ClearanceBooksRouter
     app.get('/api/exportClearanceBooks', ClearanceBooksRouter);
     app.get('/api/getAllClearanceBooks', ClearanceBooksRouter);
+    app.get('/api/getClearanceBooksByMonthYear', ClearanceBooksRouter);
     app.post('/api/addClearanceBook', ClearanceBooksRouter);
     app.delete('/api/deleteClearanceBook', ClearanceBooksRouter);
     app.put('/api/editClearanceBook', ClearanceBooksRouter);
