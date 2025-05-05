@@ -3,6 +3,7 @@ const cors = require('cors');
 const route = require('./route/index');
 const connectDB = require('./config/Connect');
 const cookieParser = require('cookie-parser');
+const port = 5000;
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
@@ -12,8 +13,7 @@ const app = express();
 
 // Middleware
 app.use(cookieParser());
-const allowedOrigins = ['http://localhost:3000', 'https://thuvien2.vercel.app'];
-// Sửa CORS để thêm logging
+const allowedOrigins = ['http://localhost:3000', 'http://192.168.1.15:3000', 'https://thuvien2.vercel.app'];
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -31,7 +31,17 @@ app.use(bodyParser.json());
 // Route mặc định cho root (/)
 app.get('/', (req, res) => {
     res.status(200).json({ message: 'Welcome to the API' });
-    // Hoặc trả về HTML nếu cần: res.send('<h1>Welcome to the API</h1>');
+});
+
+// Route để chạy cancelUnconfirmedBorrows
+const ControllerHandleBook = require('./Controller/ControlerHandleBook');
+app.get('/api/cancelUnconfirmedBorrows', async (req, res) => {
+    try {
+        await ControllerHandleBook.cancelUnconfirmedBorrows(req, res);
+    } catch (error) {
+        console.error('Error in cancelUnconfirmedBorrows cron:', error);
+        res.status(500).json({ success: false, message: 'Lỗi khi thực thi cron job!' });
+    }
 });
 
 // Áp dụng các route từ index.js
@@ -46,20 +56,18 @@ app.use((req, res) => {
 connectDB().then(() => {
     console.log('MongoDB connected, starting email notifications...');
 
-    // Import ControllerEmail sau khi kết nối DB thành công
     const ControllerEmail = require('./Controller/ControllerEmail');
 
-    // Gọi các hàm notifyOverdue và notifyDueSoon
     (async () => {
         try {
-            await ControllerEmail.notifyOverdue(null, null); // Gọi mà không cần req, res
+            await ControllerEmail.notifyOverdue(null, null);
             console.log('notifyOverdue executed successfully.');
         } catch (error) {
             console.error('Error in notifyOverdue:', error);
         }
 
         try {
-            await ControllerEmail.notifyDueSoon(null, null); // Gọi mà không cần req, res
+            await ControllerEmail.notifyDueSoon(null, null);
             console.log('notifyDueSoon executed successfully.');
         } catch (error) {
             console.error('Error in notifyDueSoon:', error);
@@ -78,5 +86,8 @@ const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
 const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-// Export as Vercel serverless function
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+});
+
 module.exports = app;
