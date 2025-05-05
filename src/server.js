@@ -15,14 +15,12 @@ const port = 5000;
 const allowedOrigins = [
     'http://localhost:3000', // Development
     'https://thuvien2.vercel.app', // Frontend trên Vercel
-    'https://server-plum-xi.vercel.app', // Backend trên Vercel
+    'https://latn.onrender.com',
 ];
 
 // Cấu hình CORS
 app.use(cors({
     origin: function (origin, callback) {
-        // Cho phép yêu cầu không có origin (như Postman) hoặc origin trong danh sách
-        // Hỗ trợ preview URLs của Vercel
         if (!origin ||
             allowedOrigins.includes(origin) ||
             /^https:\/\/thuvien2(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) {
@@ -32,10 +30,10 @@ app.use(cors({
             callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
         }
     },
-    credentials: true, // Cho phép gửi cookie và header Authorization
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Các phương thức HTTP
-    allowedHeaders: ['Content-Type', 'Authorization'], // Header được phép
-    maxAge: 86400, // Cache yêu cầu preflight trong 24 giờ
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
 }));
 
 // Middleware
@@ -46,6 +44,9 @@ app.use(bodyParser.json());
 // Middleware ghi log yêu cầu
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from origin: ${req.headers.origin}`);
+    if (req.method === 'POST' && req.url === '/api/login') {
+        console.log(`Login request body:`, req.body);
+    }
     next();
 });
 
