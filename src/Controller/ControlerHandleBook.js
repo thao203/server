@@ -1,4 +1,4 @@
-﻿const ModelHandleBook = require('../Model/ModelHandleBook');
+const ModelHandleBook = require('../Model/ModelHandleBook');
 const ModelBook = require('../Model/ModelBook');
 const ModelUser = require('../Model/ModelUser');
 const ModelReader = require('../Model/ModelReader');
@@ -75,80 +75,81 @@ class ControllerHandleBook {
     }
 
     async AdminExtendAllBooks(req, res) {
-        try {
-            const { maphieumuon } = req.body;
+            try {
+                const { maphieumuon } = req.body;
 
-            // Kiểm tra dữ liệu đầu vào
-            if (!maphieumuon) {
-                return res.status(400).json({ message: 'Vui lòng nhập mã phiếu mượn !!!' });
-            }
+                // Kiểm tra dữ liệu đầu vào
+                if (!maphieumuon) {
+                    return res.status(400).json({ message: 'Vui lòng nhập mã phiếu mượn !!!' });
+                }
 
-            // Tìm phiếu mượn
-            const borrowRecord = await ModelHandleBook.findOne({
-                maphieumuon: maphieumuon.trim(),
-                'books.tinhtrang': false
-            });
-            if (!borrowRecord) {
-                return res.status(404).json({ message: 'Không tìm thấy phiếu mượn hoặc không có sách chưa trả !!!' });
-            }
-
-            // Kiểm tra sách chưa trả
-            const unreturnedBooks = borrowRecord.books.filter(book => !book.tinhtrang);
-            if (unreturnedBooks.length === 0) {
-                return res.status(400).json({ message: 'Tất cả sách trong phiếu mượn đã được trả !!!' });
-            }
-
-            // Kiểm tra sách đã gia hạn
-            const alreadyExtendedBooks = unreturnedBooks.filter(book => book.giahan);
-            if (alreadyExtendedBooks.length > 0) {
-                return res.status(400).json({
-                    message: `Các sách sau đã được gia hạn, không thể gia hạn thêm: ${alreadyExtendedBooks.map(b => b.masach).join(', ')} !!!`
+                // Tìm phiếu mượn
+                const borrowRecord = await ModelHandleBook.findOne({
+                    maphieumuon: maphieumuon.trim(),
+                    'books.tinhtrang': false
                 });
-            }
-
-            // Tìm thông tin người đọc dựa trên masinhvien
-            const masinhvien = borrowRecord.masinhvien;
-            const reader = await ModelReader.findOne({ masinhvien });
-            if (!reader) {
-                return res.status(404).json({ message: 'Không tìm thấy thông tin người đọc !!!' });
-            }
-
-            // Tính ngày gia hạn mới
-            const currentNgayHenTra = moment(borrowRecord.ngayhentra);
-            let newNgayHenTra;
-            if (reader.typereader === 'Sinh viên') {
-                newNgayHenTra = currentNgayHenTra.add(10, 'days').toDate();
-            } else if (reader.typereader === 'Giảng viên') {
-                newNgayHenTra = currentNgayHenTra.add(15, 'days').toDate();
-            } else {
-                return res.status(400).json({ message: 'Loại người đọc không hợp lệ !!!' });
-            }
-
-            // Cập nhật gia hạn cho tất cả sách chưa trả
-            for (const book of borrowRecord.books) {
-                if (!book.tinhtrang) {
-                    book.newngayhentra = newNgayHenTra;
-                    book.giahan = true;
+                if (!borrowRecord) {
+                    return res.status(404).json({ message: 'Không tìm thấy phiếu mượn hoặc không có sách chưa trả !!!' });
                 }
-            }
 
-            await borrowRecord.save();
-
-            return res.status(200).json({
-                message: `Gia hạn tất cả sách trong phiếu mượn ${maphieumuon} thành công bởi admin !!!`,
-                data: {
-                    maphieumuon: borrowRecord.maphieumuon,
-                    masinhvien,
-                    books: borrowRecord.books,
-                    newngayhentra: newNgayHenTra,
-                    typereader: reader.typereader
+                // Kiểm tra sách chưa trả
+                const unreturnedBooks = borrowRecord.books.filter(book => !book.tinhtrang);
+                if (unreturnedBooks.length === 0) {
+                    return res.status(400).json({ message: 'Tất cả sách trong phiếu mượn đã được trả !!!' });
                 }
-            });
-        } catch (error) {
-            console.error("Lỗi khi admin gia hạn tất cả sách:", error);
-            return res.status(500).json({ message: 'Lỗi máy chủ, vui lòng thử lại !!!' });
+
+                // Tìm thông tin người đọc dựa trên masinhvien
+                const masinhvien = borrowRecord.masinhvien;
+                const reader = await ModelReader.findOne({ masinhvien });
+                if (!reader) {
+                    return res.status(404).json({ message: 'Không tìm thấy thông tin người đọc !!!' });
+                }
+
+                // Tính ngày gia hạn mới
+                const currentNgayHenTra = moment(borrowRecord.ngayhentra);
+                let newNgayHenTra;
+                if (reader.typereader === 'Sinh viên') {
+                    newNgayHenTra = currentNgayHenTra.add(10, 'days').toDate();
+                } else if (reader.typereader === 'Giảng viên') {
+                    newNgayHenTra = currentNgayHenTra.add(15, 'days').toDate();
+                } else {
+                    return res.status(400).json({ message: 'Loại người đọc không hợp lệ !!!' });
+                }
+
+                // Cập nhật gia hạn cho các sách chưa trả và chưa gia hạn
+                const updatedBooks = [];
+                for (const book of borrowRecord.books) {
+                    if (!book.tinhtrang && !book.giahan) { // Chỉ gia hạn sách chưa trả và chưa gia hạn
+                        book.newngayhentra = newNgayHenTra;
+                        book.giahan = true;
+                        updatedBooks.push({
+                            masach: book.masach,
+                            giahan: book.giahan,
+                            newngayhentra: book.newngayhentra,
+                            ngayhentra: borrowRecord.ngayhentra
+                        });
+                    }
+                }
+
+                // Nếu không có sách nào được gia hạn
+                if (updatedBooks.length === 0) {
+                    return res.status(200).json({
+                        message: 'Không có sách nào đủ điều kiện để gia hạn (tất cả sách chưa trả đã được gia hạn hoặc đã trả).',
+                        updatedBooks: []
+                    });
+                }
+    await borrowRecord.save();
+
+                return res.status(200).json({
+                    message: `Gia hạn ${updatedBooks.length} sách trong phiếu mượn ${maphieumuon} thành công bởi admin !!!`,
+                    updatedBooks // Trả về danh sách sách đã gia hạn
+                });
+            } catch (error) {
+                console.error("Lỗi khi admin gia hạn tất cả sách:", error);
+                return res.status(500).json({ message: 'Lỗi máy chủ, vui lòng thử lại !!!' });
+            }
         }
-    }
+
 
     async ExtendAllBooks(req, res) {
         try {
