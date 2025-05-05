@@ -51,8 +51,7 @@ class ControllerLocationCategory {
                 const { coso, soke } = locationGroups[key];
 
                 // Tạo URL với query params chỉ chứa cơ sở và số kệ
-                const qrURL = `https://server-plum-xi.vercel.app/api/getBookshelf?coso=${encodeURIComponent(coso)}&soke=${encodeURIComponent(soke)}`;
-
+                const qrURL = `https://thuvien2.vercel.app/getBookshelf?coso=${encodeURIComponent(coso)}&soke=${encodeURIComponent(soke)}`;
                 // Tạo QR code dưới dạng Base64
                 const qrBase64 = await QRCode.toDataURL(qrURL, { width: 300 }).catch(err => {
                     throw new Error(`Lỗi khi tạo QR code cho ${coso}_${soke}: ${err.message}`);
