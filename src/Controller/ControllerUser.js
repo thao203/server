@@ -49,11 +49,11 @@ class UserController {
 
             // Lưu token vào cookie với cấu hình phù hợp
             res.cookie('Token', token, {
-                httpOnly: true,
-                secure: true, // Đặt thành true nếu dùng HTTPS, false để test trên HTTP
-                maxAge: 3600 * 1000, // 1 giờ
-                path: '/',
-                sameSite: 'Lax' // Hoặc 'None' nếu cần gửi cross-origin (kèm secure: true)
+               httpOnly: true,
+    secure: false, // Đặt thành true nếu dùng HTTPS
+    maxAge: 3600 * 1000, // 1 giờ
+    path: '/',
+    sameSite: 'Lax'
             });
 
             return res.status(200).json({
