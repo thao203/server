@@ -5,7 +5,6 @@ const ModelReader = require('../Model/ModelReader');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
 const diacritics = require('diacritics');
-
 function generateRandomMaPhieu(length = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
