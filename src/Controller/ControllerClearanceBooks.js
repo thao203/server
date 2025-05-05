@@ -1,4 +1,4 @@
-﻿const XLSX = require("xlsx");
+const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
 const ModelClearanceBooks = require("../Model/ModelClearanceBooks");
@@ -6,6 +6,67 @@ const ModelLocationCategory = require("../Model/ModelLocationCategory");
 const ModelBook = require("../Model/ModelBook");
 
 class ControllerClearanceBooks {
+async getClearanceBooksByMonthYear(req, res) {
+    try {
+        // Lấy tháng và năm từ query parameters (ví dụ: ?month=4&year=2025)
+        const { month, year } = req.query;
+
+        // Kiểm tra tháng và năm
+        if (!month || !year) {
+            return res.status(400).json({ message: "Thiếu thông tin tháng hoặc năm!" });
+        }
+
+        const monthNum = parseInt(month, 10);
+        const yearNum = parseInt(year, 10);
+
+        // Kiểm tra tháng (1-12) và năm (1900-9999)
+        if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+            return res.status(400).json({ message: "Tháng không hợp lệ! Vui lòng nhập từ 1 đến 12." });
+        }
+        if (isNaN(yearNum) || yearNum < 1900 || yearNum > 9999) {
+            return res.status(400).json({ message: "Năm không hợp lệ!" });
+        }
+
+        // Tạo khoảng thời gian cho tháng được chọn
+        const startDate = new Date(yearNum, monthNum - 1, 1); // Ngày đầu tiên của tháng
+        const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59, 999); // Ngày cuối cùng của tháng
+
+        // Lấy danh sách sách thanh lý trong khoảng thời gian
+        const clearanceBooks = await ModelClearanceBooks.find({
+            ngaycapnhat: {
+                $gte: startDate,
+                $lte: endDate
+            }
+        }).lean();
+
+        if (!clearanceBooks || clearanceBooks.length === 0) {
+            return res.status(404).json({ message: `Không có dữ liệu sách thanh lý cho tháng ${monthNum}/${yearNum}!` });
+        }
+
+        // Lấy thông tin vị trí để ánh xạ coso
+        const locations = await ModelLocationCategory.find({}, "mavitri coso").lean();
+        const locationMap = {};
+        locations.forEach(loc => {
+            locationMap[loc.mavitri] = loc.coso;
+        });
+
+        // Định dạng dữ liệu với thông tin coso
+        const formattedClearanceBooks = clearanceBooks.map(book => ({
+            ...book,
+            coso: locationMap[book.mavitri] || "Không xác định"
+        }));
+
+        return res.status(200).json({
+            message: "Lấy danh sách sách thanh lý theo tháng và năm thành công!",
+            clearanceBooks: formattedClearanceBooks,
+            month: monthNum,
+            year: yearNum
+        });
+    } catch (error) {
+        console.error("❌ Lỗi khi lấy danh sách sách thanh lý theo tháng và năm:", error.message, error.stack);
+        return res.status(500).json({ message: "Lỗi máy chủ!", error: error.message });
+    }
+}
     async getAllClearanceBooks(req, res) {
         try {
             const clearanceBooks = await ModelClearanceBooks.find().lean();
