@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const route = require('./route/index');
-const connectDB = require('./config/connect');
+const connectDB = require('./config/Connect');
 const cookieParser = require('cookie-parser');
 const app = express();
 const port = process.env.PORT || 5000; // Dùng biến môi trường PORT cho Vercel
