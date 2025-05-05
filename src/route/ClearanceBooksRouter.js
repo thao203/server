@@ -8,4 +8,5 @@ router.post('/api/addClearanceBook', ControllerClearanceBooks.addClearanceBook);
 router.delete('/api/deleteClearanceBook', ControllerClearanceBooks.deleteClearanceBook);
 router.put('/api/editClearanceBook', ControllerClearanceBooks.editClearanceBook);
 router.post('/api/changeClearanceBookStatus', ControllerClearanceBooks.changeClearanceBookStatus);
+router.get('/api/getClearanceBooksByMonthYear', ControllerClearanceBooks.getClearanceBooksByMonthYear);
 module.exports = router;
