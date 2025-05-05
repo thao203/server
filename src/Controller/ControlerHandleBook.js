@@ -295,7 +295,7 @@ class ControllerHandleBook {
 
     async SearchBorrowRecords(req, res) {
         try {
-            const { timphieu } = req.body
+            const { timphieu } = req.query;
 
             // Kiểm tra đầu vào
             if (!timphieu) {
