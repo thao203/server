@@ -13,8 +13,7 @@ app.use(cookieParser());
 const allowedOrigins = [
     'http://localhost:3000',
     'http://192.168.1.15:3000',
-    'https://thuvien2.vercel.app', // Thêm domain frontend trên Vercel
-    // Nếu không biết chính xác domain, có thể dùng '*' tạm thời để debug
+    'https://thuvien2.vercel.app'
 ];
 
 app.use(cors({
