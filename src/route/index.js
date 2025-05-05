@@ -80,7 +80,7 @@ function route(app) {
     // HandleBook
     app.get('/api/GetBorrowsByStudent', HandleBookRouter);
     app.get('/api/GetBorrowedBooks', HandleBookRouter);
-    app.get('/api/SearchBorrowRecords', HandleBookRouter);
+    app.post('/api/SearchBorrowRecords', HandleBookRouter);
     app.post('/api/requestborrowbook', HandleBookRouter);
     app.get('/api/cancelUnconfirmedBorrows', HandleBookRouter);
     app.post('/api/confirmBorrowRequest', HandleBookRouter);
