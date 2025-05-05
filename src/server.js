@@ -3,30 +3,51 @@ const cors = require('cors');
 const route = require('./route/index');
 const connectDB = require('./config/Connect');
 const cookieParser = require('cookie-parser');
-const port = 5000;
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
+const port = 5000;
+
+// Danh sách các origin được phép
+const allowedOrigins = [
+    'http://localhost:3000', // Development
+    'https://thuvien2.vercel.app', // Frontend trên Vercel
+    'https://server-plum-xi.vercel.app', // Backend trên Vercel
+];
+
+// Cấu hình CORS
+app.use(cors({
+    origin: function (origin, callback) {
+        // Cho phép yêu cầu không có origin (như Postman) hoặc origin trong danh sách
+        // Hỗ trợ preview URLs của Vercel
+        if (!origin ||
+            allowedOrigins.includes(origin) ||
+            /^https:\/\/thuvien2(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) {
+            callback(null, true);
+        } else {
+            console.error(`[${new Date().toISOString()}] CORS blocked origin: ${origin}`);
+            callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
+        }
+    },
+    credentials: true, // Cho phép gửi cookie và header Authorization
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Các phương thức HTTP
+    allowedHeaders: ['Content-Type', 'Authorization'], // Header được phép
+    maxAge: 86400, // Cache yêu cầu preflight trong 24 giờ
+}));
 
 // Middleware
 app.use(cookieParser());
-const allowedOrigins = ['http://localhost:3000', 'http://192.168.1.15:3000', 'https://thuvien2.vercel.app'];
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.log('CORS blocked origin:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
-}));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+// Middleware ghi log yêu cầu
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from origin: ${req.headers.origin}`);
+    next();
+});
 
 // Route mặc định cho root (/)
 app.get('/', (req, res) => {
@@ -39,7 +60,7 @@ app.get('/api/cancelUnconfirmedBorrows', async (req, res) => {
     try {
         await ControllerHandleBook.cancelUnconfirmedBorrows(req, res);
     } catch (error) {
-        console.error('Error in cancelUnconfirmedBorrows cron:', error);
+        console.error(`[${new Date().toISOString()}] Error in cancelUnconfirmedBorrows:`, error);
         res.status(500).json({ success: false, message: 'Lỗi khi thực thi cron job!' });
     }
 });
@@ -63,18 +84,18 @@ connectDB().then(() => {
             await ControllerEmail.notifyOverdue(null, null);
             console.log('notifyOverdue executed successfully.');
         } catch (error) {
-            console.error('Error in notifyOverdue:', error);
+            console.error(`[${new Date().toISOString()}] Error in notifyOverdue:`, error);
         }
 
         try {
             await ControllerEmail.notifyDueSoon(null, null);
             console.log('notifyDueSoon executed successfully.');
         } catch (error) {
-            console.error('Error in notifyDueSoon:', error);
+            console.error(`[${new Date().toISOString()}] Error in notifyDueSoon:`, error);
         }
     })();
 }).catch((error) => {
-    console.error('Failed to connect to MongoDB', error);
+    console.error(`[${new Date().toISOString()}] Failed to connect to MongoDB:`, error);
 });
 
 // Google OAuth2 for email
