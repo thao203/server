@@ -50,8 +50,8 @@ function route(app) {
     app.get('/api/exportBookBorrow', ReportRouter);
     //email
     app.post('/api/sendOTP', EmailRouter);
-    app.post('/api/notifyOverdue', emailRouter);
-    app.post('/api/notifyDueSoon', emailRouter);
+    app.post('/api/notifyOverdue', EmailRouter);
+    app.post('/api/notifyDueSoon', EmailRouter);
     // user
     app.delete('/api/deleteUser', UserRouter);
     app.put('/api/updateUser', UserRouter);
