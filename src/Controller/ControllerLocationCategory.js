@@ -12,6 +12,7 @@ class ControllerLocationCategory {
         this.localIPv4 = this.getLocalIPv4();
     }
 
+
     getLocalIPv4() {
         const interfaces = os.networkInterfaces();
         for (const interfaceName in interfaces) {
