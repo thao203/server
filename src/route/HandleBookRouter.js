@@ -9,7 +9,7 @@ router.post('/api/ReturnBook', ControllerHandleBook.ReturnBook);
 router.post('/api/ExtendBorrowing', ControllerHandleBook.ExtendBorrowing);
 router.get('/api/GetBorrowedBooks', ControllerHandleBook.GetBorrowedBooks);
 router.get('/api/GetBorrowsByStudent', ControllerHandleBook.GetBorrowsByStudent);
-router.get('/api/SearchBorrowRecords', ControllerHandleBook.SearchBorrowRecords);
+router.post('/api/SearchBorrowRecords', ControllerHandleBook.SearchBorrowRecords);
 router.post('/api/ReturnAllBooks', ControllerHandleBook.ReturnAllBooks);
 router.post('/api/ExtendAllBooks', ControllerHandleBook.ExtendAllBooks);
 router.post('/api/AdminExtendAllBooks', ControllerHandleBook.AdminExtendAllBooks);
