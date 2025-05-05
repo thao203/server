@@ -11,14 +11,9 @@ require('dotenv').config();
 const app = express();
 const port = 5000;
 
-// Danh sách các origin được phép
-const allowedOrigins = [
-    'http://localhost:3000', // Development
-    'https://thuvien2.vercel.app', // Frontend trên Vercel
-    'https://latn.onrender.com',
-];
-
-// Cấu hình CORS
+// Middleware
+app.use(cookieParser());
+const allowedOrigins = ['http://localhost:3000', 'http://192.168.1.15:3000', 'https://thuvien2.vercel.app'];
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin ||
@@ -91,7 +86,7 @@ connectDB().then(() => {
         try {
             await ControllerEmail.notifyDueSoon(null, null);
             console.log('notifyDueSoon executed successfully.');
-        } catch (error) {
+} catch (error) {
             console.error(`[${new Date().toISOString()}] Error in notifyDueSoon:`, error);
         }
     })();
