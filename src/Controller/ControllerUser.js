@@ -2,8 +2,8 @@ const ModelUser = require('../Model/ModelUser');
 const ModelReader = require('../Model/ModelReader');
 const bcrypt = require('bcrypt');
 const moment = require('moment');
+const { jwtDecode } = require('jwt-decode');
 const jwt = require('jsonwebtoken');
-
 class UserController {
     async getStudentFromToken(req, res) {
         try {
@@ -47,13 +47,13 @@ class UserController {
                 { expiresIn: process.env.EXPIRES_IN || '1h' }
             );
 
-            // Lưu token vào cookie
+            // Trong hàm login, sửa res.cookie
             res.cookie('Token', token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production', // true trên HTTPS (Vercel), false trên local
-                maxAge: 3600 * 1000, // 1 giờ
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 3600 * 1000,
                 path: '/',
-                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // None cho cross-site trên Vercel
+                sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
             });
 
             return res.status(200).json({
@@ -62,29 +62,29 @@ class UserController {
             });
 
         } catch (error) {
-            console.error('Lỗi đăng nhập:', error);
+            console.error(error);
             return res.status(500).json({ message: 'Lỗi máy chủ !!!' });
         }
     }
 
     logout(req, res) {
+        // Trong hàm logout, sửa res.clearCookie
         res.clearCookie('Token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             path: '/',
-            sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+            sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
         }).status(200).json({ message: 'Đăng xuất thành công!' });
     }
-
+    // Đổi mật khẩu
     async changePassword(req, res) {
         try {
-            // Lấy token từ cookie
-            const token = req.cookies.Token; // Sửa lỗi cú pháp
+            // Lấy token từ cookie và giải mã
+            // Trong hàm changePassword, sửa phần lấy và verify token
+            const token = req.cookies.Token;
             if (!token) {
                 return res.status(401).json({ message: 'Không có token !!!' });
             }
-
-            // Verify token thay vì decode
             let decoded;
             try {
                 decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -92,8 +92,8 @@ class UserController {
                 console.error('Lỗi verify token:', error);
                 return res.status(401).json({ message: 'Token không hợp lệ !!!' });
             }
-
             const dataUser = await ModelUser.findOne({ masinhvien: decoded.masinhvien });
+
             if (!dataUser) {
                 return res.status(403).json({ message: 'Tài khoản không tồn tại !!!' });
             }
@@ -126,11 +126,11 @@ class UserController {
             return res.status(200).json({ message: 'Thay đổi mật khẩu thành công !!!' });
 
         } catch (error) {
-            console.error('Lỗi đổi mật khẩu:', error);
+            console.error(error);
             return res.status(500).json({ message: 'Đã xảy ra lỗi !!!' });
         }
-    }
 
+    }
     async verifyOTP(req, res) {
         try {
             const { masinhvien, otp, newPassword } = req.body;
@@ -154,6 +154,8 @@ class UserController {
         }
     }
 
+
+    // Lấy danh sách tất cả người dùng
     async getAllUsers(req, res) {
         try {
             const users = await ModelUser.find();
@@ -163,29 +165,35 @@ class UserController {
         }
     }
 
+    // Lấy thông tin người dùng bằng mã sinh viên
     async getUserByMaSinhVien(req, res) {
         try {
             let { masinhvien } = req.query;
 
             if (!masinhvien) {
-                return res.status(400).json({ message: 'Vui lòng nhập mã sinh viên!' });
+                return res.status(400).json({ message: "Vui lòng nhập mã sinh viên!" });
             }
 
-            masinhvien = masinhvien.trim();
+            masinhvien = masinhvien.trim(); // Xóa khoảng trắng ở đầu và cuối
+
+            // Tìm kiếm gần đúng
             const users = await ModelUser.find({
-                masinhvien: { $regex: masinhvien, $options: 'i' }
+                masinhvien: { $regex: masinhvien, $options: "i" }
             });
 
             if (users.length === 0) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+                return res.status(404).json({ message: "Không tìm thấy người dùng" });
             }
 
             res.status(200).json(users);
         } catch (error) {
-            res.status(500).json({ message: 'Lỗi server', error });
+            res.status(500).json({ message: "Lỗi server", error });
         }
     }
 
+
+
+    // Thêm người dùng mới
     async createUser(req, res) {
         try {
             let { masinhvien, password, email, hoten, address, ngaysinh, sdt, typereader } = req.body;
@@ -209,20 +217,26 @@ class UserController {
                 return res.status(400).json({ message: 'Số điện thoại không hợp lệ!' });
             }
 
+            // Kiểm tra xem mã sinh viên hoặc email đã tồn tại trong User
             const existingUser = await ModelUser.findOne({ $or: [{ masinhvien }, { email }] });
             if (existingUser) {
                 return res.status(400).json({ message: 'Mã sinh viên hoặc email đã tồn tại!' });
             }
 
+            // Kiểm tra xem email đã tồn tại trong Reader chưa
             const existingReader = await ModelReader.findOne({ email });
             if (existingReader) {
                 return res.status(400).json({ message: 'Email đã tồn tại trong hệ thống!' });
             }
 
+            // Mã hóa mật khẩu
             const hashedPassword = await bcrypt.hash(password, saltRounds);
-            const lastUser = await ModelUser.findOne({}, { id: 1 }).sort({ id: -1 }).lean();
-            const newId = lastUser && !isNaN(parseInt(lastUser.id, 10)) ? (parseInt(lastUser.id, 10) + 1).toString() : '1';
 
+            // Lấy ID cuối cùng
+            const lastUser = await ModelUser.findOne({}, { id: 1 }).sort({ id: -1 }).lean();
+            const newId = lastUser && !isNaN(parseInt(lastUser.id, 10)) ? (parseInt(lastUser.id, 10) + 1).toString() : "1";
+
+            // Tạo User mới
             const newUser = new ModelUser({
                 id: newId,
                 masinhvien,
@@ -230,6 +244,7 @@ class UserController {
                 password: hashedPassword
             });
 
+            // Tạo Reader mới
             const newReader = new ModelReader({
                 masinhvien,
                 email,
@@ -240,6 +255,7 @@ class UserController {
                 typereader: typereader || ''
             });
 
+            // Lưu vào database
             await newUser.save();
             await newReader.save();
 
@@ -250,19 +266,27 @@ class UserController {
         }
     }
 
+
     async updateUser(req, res) {
         try {
-            const { masinhvien, isAdmin } = req.body;
+            const { masinhvien } = req.body;
+            const { isAdmin } = req.body; // Chỉ cập nhật quyền Admin
+
+            // Kiểm tra xem có dữ liệu hợp lệ không
             if (typeof isAdmin === 'undefined') {
                 return res.status(400).json({ message: 'Thiếu thông tin cập nhật' });
             }
 
+            // Tìm người dùng theo `masinhvien`
             const user = await ModelUser.findOne({ masinhvien });
+
             if (!user) {
                 return res.status(404).json({ message: 'Không tìm thấy người dùng' });
             }
 
+            // Chỉ cập nhật quyền Admin, không thay đổi mã sinh viên
             user.isAdmin = isAdmin;
+
             await user.save();
             res.status(200).json({ message: 'Cập nhật thành công', user });
         } catch (error) {
@@ -270,24 +294,32 @@ class UserController {
         }
     }
 
+
+    // Xóa người dùng
     async deleteUser(req, res) {
         try {
             const { masinhvien } = req.body;
+
+            // Tìm user trước khi xóa
             const user = await ModelUser.findOne({ masinhvien });
             if (!user) {
                 return res.status(404).json({ message: 'Không tìm thấy người dùng' });
             }
 
+            // Kiểm tra nếu user là admin
             if (user.isAdmin) {
                 return res.status(403).json({ message: 'Không thể xóa tài khoản admin!' });
             }
 
+            // Xóa tài khoản nếu không phải admin
             await ModelUser.deleteOne({ masinhvien });
+
             res.status(200).json({ message: 'Xóa thành công' });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server', error });
         }
     }
+
 }
 
 module.exports = new UserController();
