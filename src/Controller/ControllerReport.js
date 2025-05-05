@@ -7,74 +7,85 @@ const LocationCategory = require("../Model/ModelLocationCategory");
 class ControllerReport {
     // 📌 API hiển thị danh sách thống kê số lượt mượn sách
     async getBookBorrowByMonth(req, res) {
-        try {
-            const { month, year } = req.query;
+    try {
+        const { month, year } = req.query;
 
-            if (!month || !year) {
-                return res.status(400).json({ message: "Vui lòng nhập tháng và năm!" });
-            }
-
-            const startDate = moment(`${year}-${month}-01`).startOf('month').toDate();
-            const endDate = moment(`${year}-${month}-01`).endOf('month').toDate();
-
-            const borrowStats = await BorrowingForm.aggregate([
-                {
-                    $match: {
-                        ngaymuon: { $gte: startDate, $lte: endDate }
-                    }
-                },
-                { $unwind: "$books" }, // Tách mảng books thành các bản ghi riêng
-                {
-                    $group: {
-                        _id: {
-                            masach: "$books.masach",
-                            mavitri: "$books.mavitri"
-                        },
-                        totalBorrowed: { $sum: "$books.soluong" }
-                    }
-                },
-                {
-                    $lookup: {
-                        from: "books",
-                        localField: "_id.masach",
-                        foreignField: "masach",
-                        as: "bookInfo"
-                    }
-                },
-                { $unwind: "$bookInfo" },
-                {
-                    $lookup: {
-                        from: "locationcategories",
-                        localField: "_id.mavitri",
-                        foreignField: "mavitri",
-                        as: "locationInfo"
-                    }
-                },
-                { $unwind: "$locationInfo" },
-                {
-                    $project: {
-                        _id: 0,
-                        masach: "$_id.masach",
-                        tensach: "$bookInfo.tensach",
-                        mavitri: "$_id.mavitri",
-                        coso: "$locationInfo.coso",
-                        soke: "$locationInfo.soke",
-                        tongluotmuon: "$totalBorrowed"
-                    }
-                },
-                { $sort: { tongluotmuon: -1 } }
-            ]);
-
-            return res.status(200).json({
-                message: `Thống kê lượt mượn sách theo vị trí tháng ${month}/${year}`,
-                data: borrowStats
-            });
-        } catch (error) {
-            console.error("Lỗi khi lấy thống kê sách:", error);
-            return res.status(500).json({ message: "Lỗi máy chủ!" });
+        if (!month || !year) {
+            return res.status(400).json({ message: "Vui lòng nhập tháng và năm!" });
         }
-    }
 
+        // Chuyển đổi thành số và kiểm tra
+        const monthNum = parseInt(month, 10);
+        const yearNum = parseInt(year, 10);
+
+        if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+            return res.status(400).json({ message: "Tháng không hợp lệ! Vui lòng nhập từ 1 đến 12." });
+        }
+        if (isNaN(yearNum) || yearNum < 1900 || yearNum > 9999) {
+            return res.status(400).json({ message: "Năm không hợp lệ!" });
+        }
+
+        // Sử dụng moment với giá trị đã kiểm tra
+        const startDate = moment(`${yearNum}-${monthNum}-01`).startOf('month').toDate();
+        const endDate = moment(`${yearNum}-${monthNum}-01`).endOf('month').toDate();
+
+        const borrowStats = await BorrowingForm.aggregate([
+            {
+                $match: {
+                    ngaymuon: { $gte: startDate, $lte: endDate }
+                }
+            },
+            { $unwind: "$books" },
+            {
+                $group: {
+                    _id: {
+                        masach: "$books.masach",
+                        mavitri: "$books.mavitri"
+                    },
+                    totalBorrowed: { $sum: "$books.soluong" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "books",
+                    localField: "_id.masach",
+                    foreignField: "masach",
+                    as: "bookInfo"
+                }
+            },
+            { $unwind: "$bookInfo" },
+            {
+                $lookup: {
+                    from: "locationcategories",
+                    localField: "_id.mavitri",
+                    foreignField: "mavitri",
+                    as: "locationInfo"
+                }
+            },
+            { $unwind: "$locationInfo" },
+            {
+                $project: {
+                    _id: 0,
+                    masach: "$_id.masach",
+                    tensach: "$bookInfo.tensach",
+                    mavitri: "$_id.mavitri",
+                    coso: "$locationInfo.coso",
+                    soke: "$locationInfo.soke",
+                    tongluotmuon: "$totalBorrowed"
+                }
+            },
+            { $sort: { tongluotmuon: -1 } }
+        ]);
+
+        return res.status(200).json({
+            message: `Thống kê lượt mượn sách theo vị trí tháng ${monthNum}/${yearNum}`,
+            data: borrowStats
+        });
+    } catch (error) {
+        console.error("Lỗi khi lấy thống kê sách:", error);
+        return res.status(500).json({ message: "Lỗi máy chủ!" });
+    }
+}
     // 📌 Hàm xuất thống kê sách ra file Excel
     async exportBookBorrow(req, res) {
         try {
